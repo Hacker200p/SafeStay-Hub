@@ -27,6 +27,9 @@ import contractRoutes from './routes/contractRoutes.js';
 const app = express();
 const server = http.createServer(app);
 
+// Normalize configured frontend URL to avoid CORS mismatches from trailing slashes.
+const frontendOrigin = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
+
 // Initialize health monitor
 const healthMonitor = new HealthMonitor({
   maxMemoryPercent: 85,
@@ -55,7 +58,7 @@ gracefulShutdown.init();
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: frontendOrigin,
     methods: ['GET', 'POST'],
   },
   pingTimeout: 60000,
@@ -88,7 +91,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: frontendOrigin,
   credentials: true,
 }));
 
