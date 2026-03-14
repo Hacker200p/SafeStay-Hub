@@ -1,0 +1,5 @@
+# Railway Procfile for SafeStay Hub Backend
+# This file tells Railway how to run your application
+
+web: npm start
+worker: npm run panorama:start

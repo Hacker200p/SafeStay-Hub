@@ -1,0 +1,12 @@
+# Frontend .vercelignore - Files to exclude from Vercel deployment
+node_modules
+.git
+.gitignore
+README.md
+.env
+.env.local
+.env.*.local
+src/**/*.test.js
+src/**/*.spec.js
+coverage
+dist (keep this for build output)
