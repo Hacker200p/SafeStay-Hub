@@ -7,6 +7,7 @@
     "scripts": {
         "start": "node server.js",
         "dev": "nodemon server.js",
+        "build": "echo Backend build step complete",
         "test": "node test-api.js",
         "setup:python": "pip install -r requirements.txt",
         "panorama:start": "python panorama_service.py",
