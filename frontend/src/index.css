@@ -1,0 +1,142 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Styles */
+* {
+  @apply box-border;
+}
+
+body {
+  @apply bg-background text-text-dark;
+  font-family: 'Inter', 'Poppins', sans-serif;
+  line-height: 1.5;
+}
+
+/* Button Utilities */
+.btn-primary {
+  @apply bg-primary text-white py-2 px-6 rounded-lg hover:bg-blue-600 transition-colors;
+}
+
+.btn-accent {
+  @apply bg-accent text-white py-2 px-6 rounded-lg hover:brightness-95 transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 text-text-dark py-2 px-6 rounded-lg hover:bg-gray-300 transition-colors;
+}
+
+/* Input Utilities */
+.input {
+  @apply border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:outline-none transition-all;
+}
+
+.input:disabled {
+  @apply bg-gray-100 cursor-not-allowed;
+}
+
+/* Card Utilities */
+.card {
+  @apply bg-white rounded-2xl shadow-md p-4 hover:shadow-lg transition-shadow;
+}
+
+/* Filter and Badge Utilities */
+.filter-bar {
+  @apply flex gap-2 mb-4 items-center;
+}
+
+.hostel-card {
+  @apply card transition-transform hover:scale-105;
+}
+
+.amenity-badge {
+  @apply bg-gray-100 rounded-full px-3 py-1 text-sm text-text-muted;
+}
+
+.booking-card {
+  @apply card mb-4;
+}
+
+.sos-button {
+  @apply btn-accent w-full mt-4;
+}
+
+.stats-card {
+  @apply card text-center;
+}
+
+.chart {
+  @apply h-72 bg-blue-50 rounded-lg;
+}
+
+.orders-card {
+  @apply card;
+}
+
+.menu-item {
+  @apply border border-gray-300 rounded-lg p-3 hover:shadow-md transition-shadow;
+}
+
+.approve-btn {
+  @apply bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition-colors;
+}
+
+.reject-btn {
+  @apply bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors;
+}
+
+.upload-btn {
+  @apply border-2 border-dashed border-gray-400 p-4 rounded-lg cursor-pointer hover:border-primary hover:bg-blue-50 transition-colors;
+}
+
+.submit-btn {
+  @apply btn-accent mt-4;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Animations */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slideDown {
+  animation: slideDown 0.3s ease-out;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
