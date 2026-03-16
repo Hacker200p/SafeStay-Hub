@@ -44,6 +44,20 @@ const stitchPanoramaPreview = async (req, res) => {
     });
     formData.append('width', String(width));
 
+    try {
+      const configuredPanoramaHost = new URL(PANORAMA_SERVICE_URL).host;
+      const backendHost = req.get('host');
+      if (backendHost && configuredPanoramaHost === backendHost) {
+        return res.status(503).json({
+          success: false,
+          message:
+            'PANORAMA_SERVICE_URL is misconfigured. It points to the backend host; set it to the Python panorama service URL.',
+        });
+      }
+    } catch {
+      // Ignore URL parsing errors here; axios call below will surface invalid URL issues.
+    }
+
     const panoramaResponse = await axios.post(
       `${PANORAMA_SERVICE_URL}/stitch-base64`,
       formData,
@@ -78,6 +92,14 @@ const stitchPanoramaPreview = async (req, res) => {
       return res.status(503).json({
         success: false,
         message: 'Panorama service is unavailable. Please try again later.',
+      });
+    }
+
+    if (error.response?.status === 404) {
+      return res.status(503).json({
+        success: false,
+        message:
+          'Panorama service endpoint not found. Verify PANORAMA_SERVICE_URL points to the Python service and supports /stitch-base64.',
       });
     }
 
