@@ -2461,9 +2461,13 @@ export default function OwnerDashboard() {
                   }
                 }
                 
-                // Refresh rooms list
-                const res = await ownerAPI.getHostelRooms(selectedHostelId)
-                setRooms(res.data?.data || [])
+                // Refresh rooms list for the edited room's hostel.
+                const targetHostelId = editingRoom.hostelId || selectedHostelId
+                const res = await ownerAPI.getHostelRooms(targetHostelId)
+                setRooms(Array.isArray(res.data?.data) ? res.data.data : [])
+                if (targetHostelId && targetHostelId !== selectedHostelId) {
+                  setSelectedHostelId(targetHostelId)
+                }
                 
                 // Refresh hostels and all rooms list
                 const hostelResp = await ownerAPI.getMyHostels()

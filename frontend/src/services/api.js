@@ -28,6 +28,19 @@ const api = axios.create({
   },
 })
 
+const withNoCache = (config = {}) => ({
+  ...config,
+  params: {
+    ...(config.params || {}),
+    _ts: Date.now(),
+  },
+  headers: {
+    ...(config.headers || {}),
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache',
+  },
+})
+
 // Flag to prevent infinite refresh loops
 let isRefreshing = false
 let failedQueue = []
@@ -225,7 +238,7 @@ export const tenantAPI = {
 
 // Owner API calls
 export const ownerAPI = {
-  getMyHostels: () => api.get('/owner/hostels'),
+  getMyHostels: () => api.get('/owner/hostels', withNoCache()),
   createHostel: (data) => api.post('/owner/hostels', data),
   updateHostel: (id, data) => api.put(`/owner/hostels/${id}`, data),
   deleteHostel: (id) => api.delete(`/owner/hostels/${id}`),
@@ -292,7 +305,7 @@ export const ownerAPI = {
     })
   },
   createRoom: (hostelId, data) => api.post(`/owner/hostels/${hostelId}/rooms`, data),
-  getHostelRooms: (hostelId) => api.get(`/owner/hostels/${hostelId}/rooms`),
+  getHostelRooms: (hostelId) => api.get(`/owner/hostels/${hostelId}/rooms`, withNoCache()),
   updateRoom: (roomId, data) => api.put(`/owner/rooms/${roomId}`, data),
   deleteRoom: (roomId) => api.delete(`/owner/rooms/${roomId}`),
   deleteMedia: (hostelId, publicId) => api.delete(`/owner/hostels/${hostelId}/media`, { params: { publicId } }),
