@@ -1720,6 +1720,9 @@ export default function OwnerDashboard() {
                         return
                       }
 
+                      let panoramaUploadFailed = false
+                      let panoramaUploadError = ''
+
                       // Prepare room data for API
                       const roomData = {
                         roomNumber: roomForm.roomName,
@@ -1751,11 +1754,17 @@ export default function OwnerDashboard() {
                             await ownerAPI.uploadRoomMedia(createdRooms[0]._id, [panoramaFile], 'panorama')
                           } catch (panoramaErr) {
                             console.error('Failed to upload panorama:', panoramaErr)
+                            panoramaUploadFailed = true
+                            panoramaUploadError = panoramaErr.response?.data?.message || panoramaErr.message || 'Failed to upload panorama'
                           }
                         }
                       }
-                      
-                      setRoomMessage(`${roomForm.numberOfRooms} room(s) added successfully!`)
+
+                      if (panoramaUploadFailed) {
+                        setRoomMessage(`Room(s) created, but 360 panorama upload failed: ${panoramaUploadError}`)
+                      } else {
+                        setRoomMessage(`${roomForm.numberOfRooms} room(s) added successfully!`)
+                      }
                       setPanoramaPreview(null)
                       
                       // Refresh hostels list
@@ -1766,22 +1775,24 @@ export default function OwnerDashboard() {
                         fetchAllRooms(hostelResp.data.data)
                       }
                       
-                      setTimeout(() => {
-                        setRoomMessage('')
-                        setRoomForm({
-                          hostelId: roomForm.hostelId,
-                          roomName: '',
-                          roomType: 'triple',
-                          floor: '1',
-                          numberOfRooms: '1',
-                          pricePerNight: '',
-                          securityDeposit: '',
-                          maxOccupancy: '',
-                          amenities: [],
-                          isAvailable: true,
-                          panoramaData: null,
-                        })
-                      }, 2000)
+                      if (!panoramaUploadFailed) {
+                        setTimeout(() => {
+                          setRoomMessage('')
+                          setRoomForm({
+                            hostelId: roomForm.hostelId,
+                            roomName: '',
+                            roomType: 'triple',
+                            floor: '1',
+                            numberOfRooms: '1',
+                            pricePerNight: '',
+                            securityDeposit: '',
+                            maxOccupancy: '',
+                            amenities: [],
+                            isAvailable: true,
+                            panoramaData: null,
+                          })
+                        }, 2000)
+                      }
                     } catch (err) {
                       console.error('Error adding room:', err)
                       console.error('Error response:', err.response)

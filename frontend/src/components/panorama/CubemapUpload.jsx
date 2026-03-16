@@ -152,6 +152,12 @@ const CubemapUpload = ({ onUploadSuccess }) => {
       setResult(stitchData);
       const panoramaUrl = `data:image/jpeg;base64,${stitchData.imageBase64}`;
       setPreviewUrl(panoramaUrl);
+
+      // Propagate stitched panorama immediately so parent forms can save it
+      // even if the user does not open/confirm the preview modal.
+      if (onUploadSuccess) {
+        onUploadSuccess(stitchData);
+      }
       
     } catch (err) {
       const configuredApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
@@ -204,9 +210,6 @@ const CubemapUpload = ({ onUploadSuccess }) => {
 
   const handleConfirmUpload = () => {
     console.log('handleConfirmUpload called');
-    if (onUploadSuccess && result) {
-      onUploadSuccess(result);
-    }
     setShowPreview(false);
   };
 
@@ -532,7 +535,7 @@ const CubemapUpload = ({ onUploadSuccess }) => {
                 🎯 Preview Your 360° Panorama
               </h3>
               <p style={{ margin: 0, opacity: 0.9, fontSize: '14px' }}>
-                Use mouse to rotate • Scroll to zoom • Click Confirm to save
+                Use mouse to rotate • Scroll to zoom • Panorama is ready to save with the room
               </p>
               <button
                 type="button"
@@ -631,7 +634,7 @@ const CubemapUpload = ({ onUploadSuccess }) => {
                   e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
                 }}
               >
-                ✅ Confirm & Save
+                ✅ Looks Good
               </button>
               
               <button
