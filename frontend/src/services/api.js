@@ -1,7 +1,21 @@
 import axios from 'axios'
 
-const RAW_API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const RAW_API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim()
 const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, '').replace(/\/api$/i, '')
+
+const deriveRailwayPrimaryOrigin = (origin) => {
+  try {
+    const url = new URL(origin)
+    const primaryHost = url.hostname.replace(/-\d+(?=\.up\.railway\.app$)/i, '')
+    if (primaryHost === url.hostname) {
+      return null
+    }
+    url.hostname = primaryHost
+    return url.origin
+  } catch {
+    return null
+  }
+}
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
@@ -221,10 +235,23 @@ export const ownerAPI = {
       }
     })
     form.append('width', String(width))
-    return api.post('/owner/panorama/stitch', form, {
+    const requestConfig = {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 180000,
       onUploadProgress,
+    }
+
+    return api.post('/owner/panorama/stitch', form, requestConfig).catch((error) => {
+      if (error.response?.status !== 404) {
+        throw error
+      }
+
+      const fallbackOrigin = deriveRailwayPrimaryOrigin(API_BASE_URL)
+      if (!fallbackOrigin) {
+        throw error
+      }
+
+      return api.post(`${fallbackOrigin}/api/owner/panorama/stitch`, form, requestConfig)
     })
   },
   uploadHostelMedia: (hostelId, files) => {
