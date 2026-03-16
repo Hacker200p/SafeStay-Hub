@@ -2,6 +2,10 @@ import axios from 'axios'
 
 const RAW_API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim()
 const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, '').replace(/\/api$/i, '')
+const RAW_PANORAMA_SERVICE_URL = (import.meta.env.VITE_PANORAMA_SERVICE_URL || '').trim()
+const PANORAMA_SERVICE_BASE_URL = RAW_PANORAMA_SERVICE_URL
+  ? RAW_PANORAMA_SERVICE_URL.replace(/\/+$/, '').replace(/\/api$/i, '')
+  : ''
 
 const deriveRailwayPrimaryOrigin = (origin) => {
   try {
@@ -241,17 +245,28 @@ export const ownerAPI = {
       onUploadProgress,
     }
 
-    return api.post('/owner/panorama/stitch', form, requestConfig).catch((error) => {
+    return api.post('/owner/panorama/stitch', form, requestConfig).catch(async (error) => {
       if (error.response?.status !== 404) {
         throw error
       }
 
       const fallbackOrigin = deriveRailwayPrimaryOrigin(API_BASE_URL)
-      if (!fallbackOrigin) {
-        throw error
+      if (fallbackOrigin) {
+        try {
+          return await api.post(`${fallbackOrigin}/api/owner/panorama/stitch`, form, requestConfig)
+        } catch (fallbackError) {
+          if (fallbackError.response?.status !== 404) {
+            throw fallbackError
+          }
+          error = fallbackError
+        }
       }
 
-      return api.post(`${fallbackOrigin}/api/owner/panorama/stitch`, form, requestConfig)
+      if (!PANORAMA_SERVICE_BASE_URL) {
+        throw new Error('Backend stitch route returned 404 and VITE_PANORAMA_SERVICE_URL is not configured for direct panorama fallback.')
+      }
+
+      return axios.post(`${PANORAMA_SERVICE_BASE_URL}/stitch-base64`, form, requestConfig)
     })
   },
   uploadHostelMedia: (hostelId, files) => {
