@@ -155,7 +155,8 @@ const CubemapUpload = ({ onUploadSuccess }) => {
       
     } catch (err) {
       if (err.response?.status === 404) {
-        setError('Panorama route not found. Check VITE_API_URL and backend deployment.');
+        const configuredApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        setError(`Panorama route not found at ${configuredApiUrl}/api/owner/panorama/stitch. Set VITE_API_URL to your backend URL.`);
       } else {
         setError(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to stitch panorama');
       }
