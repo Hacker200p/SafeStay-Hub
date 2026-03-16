@@ -156,15 +156,31 @@ const CubemapUpload = ({ onUploadSuccess }) => {
     } catch (err) {
       const configuredApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
       const stitchRouteUrl = `${configuredApiUrl}/api/owner/panorama/stitch`;
+      const attemptedMethod = (err.config?.method || 'post').toUpperCase();
+      const attemptedUrl = (() => {
+        const requestBase = err.config?.baseURL || '';
+        const requestPath = err.config?.url || '';
+        if (!requestBase && !requestPath) {
+          return stitchRouteUrl;
+        }
+        try {
+          if (requestBase) {
+            return new URL(requestPath, requestBase).toString();
+          }
+          return requestPath;
+        } catch {
+          return `${requestBase}${requestPath}` || stitchRouteUrl;
+        }
+      })();
       const apiErrorMessage = err.response?.data?.message || err.response?.data?.error;
       if (apiErrorMessage) {
         if (String(apiErrorMessage).toLowerCase() === 'route not found') {
-          setError(`Backend returned 404 at ${stitchRouteUrl}. Verify frontend is deployed with correct VITE_API_URL and backend deploy includes POST /api/owner/panorama/stitch.`);
+          setError(`Backend returned 404 for ${attemptedMethod} ${attemptedUrl}. Expected stitch endpoint ${stitchRouteUrl}. Verify backend deploy and API base URL.`);
         } else {
           setError(apiErrorMessage);
         }
       } else if (err.response?.status === 404) {
-        setError(`Panorama route not found at ${stitchRouteUrl}. Set VITE_API_URL to your backend URL and redeploy frontend.`);
+        setError(`Panorama route not found for ${attemptedMethod} ${attemptedUrl}. Expected ${stitchRouteUrl}. Set VITE_API_URL to your backend URL and redeploy frontend.`);
       } else {
         setError(err.message || 'Failed to stitch panorama');
       }
