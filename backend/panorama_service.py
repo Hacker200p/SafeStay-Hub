@@ -8,19 +8,20 @@ import os
 from werkzeug.utils import secure_filename
 import uuid
 
-# Fix for NumPy 1.20+ compatibility
-if not hasattr(np, 'bool'):
-    np.bool = bool
-if not hasattr(np, 'int'):
-    np.int = int
-if not hasattr(np, 'float'):
-    np.float = float
-if not hasattr(np, 'complex'):
-    np.complex = complex
-if not hasattr(np, 'object'):
-    np.object = object
-if not hasattr(np, 'str'):
-    np.str = str
+# Compatibility aliases for older dependencies that still reference removed NumPy symbols.
+# Using np.__dict__ avoids deprecation warnings caused by direct attribute probes.
+NUMPY_COMPAT_ALIASES = {
+    'bool': bool,
+    'int': int,
+    'float': float,
+    'complex': complex,
+    'object': object,
+    'str': str,
+}
+
+for alias, alias_type in NUMPY_COMPAT_ALIASES.items():
+    if alias not in np.__dict__:
+        setattr(np, alias, alias_type)
 
 app = Flask(__name__)
 CORS(app)
@@ -35,6 +36,20 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max for panoramas
+
+
+@app.route('/', methods=['GET'])
+def root_info():
+    return jsonify({
+        'status': 'ok',
+        'service': 'Panorama Conversion Service',
+        'health': '/health',
+    }), 200
+
+
+@app.route('/favicon.ico', methods=['GET'])
+def favicon():
+    return '', 204
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -208,6 +223,7 @@ def health_check():
             '/convert': 'Convert single panorama image',
             '/upload-panorama': 'Upload and convert panorama (alias for /convert)',
             '/stitch': 'Stitch 6 photos (cubemap) into panorama',
+            '/stitch-base64': 'Stitch 6 photos and return base64 panorama',
             '/panorama/<filename>': 'Get converted panorama'
         }
     }), 200
@@ -441,13 +457,27 @@ def get_panorama(filename):
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    use_waitress = os.environ.get('USE_WAITRESS', 'true').lower() == 'true' and not debug_mode
 
     print("Panorama Conversion Service Starting...")
     print("Endpoints:")
     print("   - POST /convert - Convert single panorama")
     print("   - POST /upload-panorama - Upload and convert panorama")
     print("   - POST /stitch - Stitch 6 photos into panorama")
+    print("   - POST /stitch-base64 - Stitch and return base64")
     print("   - GET /panorama/<filename> - Get panorama")
     print("   - GET /health - Health check")
+    print("   - GET / - Service info")
     print(f"Listening on port: {port}")
-    app.run(debug=debug_mode, host='0.0.0.0', port=port)
+
+    if use_waitress:
+        try:
+            from waitress import serve
+            waitress_threads = int(os.environ.get('WAITRESS_THREADS', 8))
+            print(f"Starting Waitress production server (threads={waitress_threads})")
+            serve(app, host='0.0.0.0', port=port, threads=waitress_threads)
+        except Exception as server_error:
+            print(f"Waitress unavailable ({server_error}). Falling back to Flask server.")
+            app.run(debug=debug_mode, host='0.0.0.0', port=port)
+    else:
+        app.run(debug=debug_mode, host='0.0.0.0', port=port)

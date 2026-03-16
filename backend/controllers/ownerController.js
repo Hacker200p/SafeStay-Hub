@@ -9,7 +9,7 @@ import Contract from '../models/Contract.js';
 import Feedback from '../models/Feedback.js';
 
 // Panorama service URL from environment
-const PANORAMA_SERVICE_URL = process.env.PANORAMA_SERVICE_URL || 'http://localhost:5001';
+const PANORAMA_SERVICE_URL = (process.env.PANORAMA_SERVICE_URL || 'http://localhost:5001').replace(/\/+$/, '');
 const PANORAMA_TIMEOUT_MS = parseInt(process.env.PANORAMA_TIMEOUT_MS || '120000', 10);
 
 const normalizePanoramaWidth = (value) => {
