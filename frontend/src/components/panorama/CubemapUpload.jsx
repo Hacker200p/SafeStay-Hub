@@ -156,7 +156,11 @@ const CubemapUpload = ({ onUploadSuccess }) => {
     } catch (err) {
       const apiErrorMessage = err.response?.data?.message || err.response?.data?.error;
       if (apiErrorMessage) {
-        setError(apiErrorMessage);
+        if (String(apiErrorMessage).toLowerCase() === 'route not found') {
+          setError('Panorama proxy route mismatch. Verify backend deploy includes POST /api/owner/panorama/stitch and PANORAMA_SERVICE_URL points to the Python service URL without /api.');
+        } else {
+          setError(apiErrorMessage);
+        }
       } else if (err.response?.status === 404) {
         const configuredApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
         setError(`Panorama route not found at ${configuredApiUrl}/api/owner/panorama/stitch. Set VITE_API_URL to your backend URL.`);
