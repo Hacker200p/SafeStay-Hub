@@ -26,6 +26,8 @@ router.post('/resend-otp', resendOTP);
 router.post('/login', validateLogin, handleValidationErrors, login);
 router.post('/refresh-token', refreshTokenController);
 router.get('/me', protect, getMe);
+// Compatibility alias for existing frontend calls.
+router.get('/profile', protect, getMe);
 router.put('/profile', protect, updateProfile);
 router.post('/upload-profile-photo', protect, upload.single('profilePhoto'), uploadProfilePhoto);
 

@@ -108,7 +108,7 @@ export const authAPI = {
     }
     return response
   },
-  getProfile: () => api.get('/auth/profile'),
+  getProfile: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
   uploadProfilePhoto: (file) => {
     const formData = new FormData()
