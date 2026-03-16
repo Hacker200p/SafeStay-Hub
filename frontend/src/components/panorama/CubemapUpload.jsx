@@ -154,7 +154,11 @@ const CubemapUpload = ({ onUploadSuccess }) => {
       setPreviewUrl(panoramaUrl);
       
     } catch (err) {
-      setError(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to stitch panorama');
+      if (err.response?.status === 404) {
+        setError('Panorama route not found. Check VITE_API_URL and backend deployment.');
+      } else {
+        setError(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to stitch panorama');
+      }
       console.error('Stitch error:', err);
     } finally {
       setUploading(false);
