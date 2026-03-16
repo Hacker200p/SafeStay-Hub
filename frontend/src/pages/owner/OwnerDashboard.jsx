@@ -204,6 +204,11 @@ export default function OwnerDashboard() {
 
   const panoramaBase64ToDataUrl = (imageBase64) => `data:image/jpeg;base64,${imageBase64}`
 
+  const getRoomPanoramaUrl = (room) =>
+    room?.panorama?.url || room?.panoramaUrl || room?.view360Url || ''
+
+  const currentEditPanoramaUrl = getRoomPanoramaUrl(editingRoom)
+
   const handlePickMedia = (e) => {
     const files = Array.from(e.target.files || [])
     const prepared = files.map((file) => ({
@@ -762,6 +767,7 @@ export default function OwnerDashboard() {
                           {hostelRooms.map((room) => {
                             const hasPhotos = room.photos && room.photos.length > 0
                             const hasVideo = room.videoUrl
+                            const roomPanoramaUrl = getRoomPanoramaUrl(room)
                             const currentIdx = currentImageIndex[room._id] || 0
                     
                     return (
@@ -833,14 +839,14 @@ export default function OwnerDashboard() {
                                     🎥 Video
                                   </button>
                                 )}
-                                {room.panorama?.url && (
+                                {roomPanoramaUrl && (
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       setPanoramaPreview({
                                         file: null,
-                                        url: room.panorama.url
+                                        url: roomPanoramaUrl
                                       })
                                       setShowPanoramaPreview(true)
                                     }}
@@ -1002,7 +1008,7 @@ export default function OwnerDashboard() {
                             </div>
                             
                             {/* View 360° Panorama Button - Show if panorama exists */}
-                            {(room.panorama && room.panorama.url) ? (
+                            {roomPanoramaUrl ? (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -1010,7 +1016,7 @@ export default function OwnerDashboard() {
                                   e.stopPropagation()
                                   setPanoramaPreview({
                                     file: null,
-                                    url: room.panorama.url
+                                    url: roomPanoramaUrl
                                   })
                                   setShowPanoramaPreview(true)
                                 }}
@@ -1022,7 +1028,7 @@ export default function OwnerDashboard() {
                             ) : (
                               <div className="w-full bg-gray-100 text-gray-500 py-2 rounded-lg text-xs text-center italic">
                                 <div>No 360° panorama - Room ID: {room._id}</div>
-                                <div className="mt-1 text-[10px]">Panorama: {JSON.stringify(room.panorama)}</div>
+                                <div className="mt-1 text-[10px]">Panorama: {JSON.stringify(room.panorama || room.panoramaUrl || room.view360Url)}</div>
                               </div>
                             )}
                           </div>
@@ -2421,7 +2427,8 @@ export default function OwnerDashboard() {
               
               try {
                 // First, update the room details
-                await ownerAPI.updateRoom(editingRoom._id, {
+                let latestRoom = null
+                const updatedRoomResponse = await ownerAPI.updateRoom(editingRoom._id, {
                   roomNumber: editRoomForm.roomNumber,
                   roomType: editRoomForm.roomType,
                   floor: parseInt(editRoomForm.floor),
@@ -2431,30 +2438,35 @@ export default function OwnerDashboard() {
                   amenities: editRoomForm.amenities,
                   isAvailable: editRoomForm.isAvailable
                 })
+                latestRoom = updatedRoomResponse?.data?.data || latestRoom
                 
                 // Upload photos if any
                 if (uploadedPhotos.length > 0) {
                   const photoFiles = uploadedPhotos.map(p => p.file)
-                  await ownerAPI.uploadRoomMedia(editingRoom._id, photoFiles, 'photos')
+                  const photoUploadResponse = await ownerAPI.uploadRoomMedia(editingRoom._id, photoFiles, 'photos')
+                  latestRoom = photoUploadResponse?.data?.data || latestRoom
                   console.log('Photos uploaded successfully')
                 }
                 
                 // Upload video if selected
                 if (uploadedVideo) {
-                  await ownerAPI.uploadRoomMedia(editingRoom._id, [uploadedVideo.file], 'video')
+                  const videoUploadResponse = await ownerAPI.uploadRoomMedia(editingRoom._id, [uploadedVideo.file], 'video')
+                  latestRoom = videoUploadResponse?.data?.data || latestRoom
                   console.log('Video uploaded successfully')
                 }
                 
                 // Upload 360 view if selected
                 if (uploaded360View) {
-                  await ownerAPI.uploadRoomMedia(editingRoom._id, [uploaded360View.file], 'view360')
+                  const view360UploadResponse = await ownerAPI.uploadRoomMedia(editingRoom._id, [uploaded360View.file], 'view360')
+                  latestRoom = view360UploadResponse?.data?.data || latestRoom
                   console.log('360 view uploaded successfully')
                 }
                 
                 // Upload panorama if selected
                 if (uploadedEditPanorama && uploadedEditPanorama.file) {
                   try {
-                    await ownerAPI.uploadRoomMedia(editingRoom._id, [uploadedEditPanorama.file], 'panorama')
+                    const panoramaUploadResponse = await ownerAPI.uploadRoomMedia(editingRoom._id, [uploadedEditPanorama.file], 'panorama')
+                    latestRoom = panoramaUploadResponse?.data?.data || latestRoom
                   } catch (panoramaErr) {
                     console.error('Panorama upload failed:', panoramaErr)
                     throw panoramaErr
@@ -2463,6 +2475,17 @@ export default function OwnerDashboard() {
                 
                 // Refresh rooms list for the edited room's hostel.
                 const targetHostelId = editingRoom.hostelId || selectedHostelId
+                if (latestRoom?._id) {
+                  setEditingRoom((prev) => (prev ? { ...prev, ...latestRoom, hostelId: prev.hostelId || targetHostelId } : prev))
+                  setRooms((prev) => prev.map((room) => (room._id === latestRoom._id ? { ...room, ...latestRoom } : room)))
+                  setAllRooms((prev) =>
+                    prev.map((room) =>
+                      room._id === latestRoom._id
+                        ? { ...room, ...latestRoom, hostelId: room.hostelId || targetHostelId }
+                        : room
+                    )
+                  )
+                }
                 const res = await ownerAPI.getHostelRooms(targetHostelId)
                 setRooms(Array.isArray(res.data?.data) ? res.data.data : [])
                 if (targetHostelId && targetHostelId !== selectedHostelId) {
@@ -2907,12 +2930,12 @@ export default function OwnerDashboard() {
                   🎯 360° Room Panorama
                 </label>
                 
-                {editingRoom?.panorama?.url && (
+                {currentEditPanoramaUrl && (
                   <div className="mb-3">
                     <p className="text-sm font-medium text-gray-700 mb-2">Current Panorama</p>
                     <div className="border rounded-lg p-3 bg-gray-50">
                       <img 
-                        src={editingRoom.panorama.url} 
+                        src={currentEditPanoramaUrl} 
                         alt="Current panorama"
                         className="w-full max-w-md rounded-lg mb-2"
                       />
@@ -2922,8 +2945,8 @@ export default function OwnerDashboard() {
                         onClick={() => {
                           setUploadedEditPanorama({
                             file: null,
-                            url: editingRoom.panorama.url,
-                            name: editingRoom.panorama.originalFilename || 'current-panorama.jpg'
+                            url: currentEditPanoramaUrl,
+                            name: editingRoom?.panorama?.originalFilename || 'current-panorama.jpg'
                           })
                           setShowEditPanoramaPreview(true)
                         }}
