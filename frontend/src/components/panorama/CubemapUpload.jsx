@@ -164,8 +164,16 @@ const CubemapUpload = ({ onUploadSuccess }) => {
           return stitchRouteUrl;
         }
         try {
+          if (/^https?:\/\//i.test(requestPath)) {
+            return requestPath;
+          }
+          if (requestBase && requestPath) {
+            const normalizedBase = requestBase.replace(/\/+$/, '');
+            const normalizedPath = requestPath.replace(/^\/+/, '');
+            return `${normalizedBase}/${normalizedPath}`;
+          }
           if (requestBase) {
-            return new URL(requestPath, requestBase).toString();
+            return requestBase;
           }
           return requestPath;
         } catch {
@@ -175,7 +183,11 @@ const CubemapUpload = ({ onUploadSuccess }) => {
       const apiErrorMessage = err.response?.data?.message || err.response?.data?.error;
       if (apiErrorMessage) {
         if (String(apiErrorMessage).toLowerCase() === 'route not found') {
-          setError(`Backend returned 404 for ${attemptedMethod} ${attemptedUrl}. Expected stitch endpoint ${stitchRouteUrl}. Verify backend deploy and API base URL.`);
+          if (attemptedUrl.includes('/api/owner/panorama/stitch')) {
+            setError('Backend panorama proxy is reachable, but upstream panorama endpoint returned 404. Set PANORAMA_SERVICE_URL on backend to the Python service base URL and redeploy backend.');
+          } else {
+            setError(`Backend returned 404 for ${attemptedMethod} ${attemptedUrl}. Expected stitch endpoint ${stitchRouteUrl}. Verify backend deploy and API base URL.`);
+          }
         } else {
           setError(apiErrorMessage);
         }
