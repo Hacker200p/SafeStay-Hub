@@ -176,6 +176,8 @@ app.get('/api/config/mapbox-token', cacheStrategies.semiStatic, (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/owner', ownerRoutes);
+// Backward-compatible alias for older frontend bundles that call owner routes without /api.
+app.use('/owner', ownerRoutes);
 app.use('/api/tenant', tenantRoutes);
 app.use('/api/canteen', canteenRoutes);
 app.use('/api/contract', contractRoutes);
