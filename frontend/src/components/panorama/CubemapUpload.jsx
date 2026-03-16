@@ -154,16 +154,17 @@ const CubemapUpload = ({ onUploadSuccess }) => {
       setPreviewUrl(panoramaUrl);
       
     } catch (err) {
+      const configuredApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+      const stitchRouteUrl = `${configuredApiUrl}/api/owner/panorama/stitch`;
       const apiErrorMessage = err.response?.data?.message || err.response?.data?.error;
       if (apiErrorMessage) {
         if (String(apiErrorMessage).toLowerCase() === 'route not found') {
-          setError('Panorama proxy route mismatch. Verify backend deploy includes POST /api/owner/panorama/stitch and PANORAMA_SERVICE_URL points to the Python service URL without /api.');
+          setError(`Backend returned 404 at ${stitchRouteUrl}. Verify frontend is deployed with correct VITE_API_URL and backend deploy includes POST /api/owner/panorama/stitch.`);
         } else {
           setError(apiErrorMessage);
         }
       } else if (err.response?.status === 404) {
-        const configuredApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        setError(`Panorama route not found at ${configuredApiUrl}/api/owner/panorama/stitch. Set VITE_API_URL to your backend URL.`);
+        setError(`Panorama route not found at ${stitchRouteUrl}. Set VITE_API_URL to your backend URL and redeploy frontend.`);
       } else {
         setError(err.message || 'Failed to stitch panorama');
       }
