@@ -29,6 +29,7 @@ const normalizePanoramaWidth = (value) => {
 const stitchPanoramaPreview = async (req, res) => {
   try {
     const requiredFaces = ['front', 'back', 'left', 'right', 'top', 'bottom'];
+    const panoramaStitchEndpoint = `${PANORAMA_SERVICE_URL}/stitch-base64`;
     const missingFaces = requiredFaces.filter((face) => !req.files?.[face]?.[0]);
 
     if (missingFaces.length > 0) {
@@ -54,7 +55,7 @@ const stitchPanoramaPreview = async (req, res) => {
         return res.status(503).json({
           success: false,
           message:
-            'PANORAMA_SERVICE_URL is misconfigured. It points to the backend host; set it to the Python panorama service URL.',
+            `PANORAMA_SERVICE_URL is misconfigured (${PANORAMA_SERVICE_URL}). It points to the backend host; set it to the Python panorama service URL.`,
         });
       }
     } catch {
@@ -62,7 +63,7 @@ const stitchPanoramaPreview = async (req, res) => {
     }
 
     const panoramaResponse = await axios.post(
-      `${PANORAMA_SERVICE_URL}/stitch-base64`,
+      panoramaStitchEndpoint,
       formData,
       {
         headers: formData.getHeaders(),
@@ -102,7 +103,7 @@ const stitchPanoramaPreview = async (req, res) => {
       return res.status(503).json({
         success: false,
         message:
-          'Panorama service endpoint not found. Verify PANORAMA_SERVICE_URL points to the Python service and supports /stitch-base64.',
+          `Panorama service endpoint not found at ${PANORAMA_SERVICE_URL}/stitch-base64. Verify PANORAMA_SERVICE_URL points to the Python service base URL (without /api).`,
       });
     }
 
