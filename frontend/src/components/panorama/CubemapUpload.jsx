@@ -184,7 +184,7 @@ const CubemapUpload = ({ onUploadSuccess }) => {
       if (apiErrorMessage) {
         if (String(apiErrorMessage).toLowerCase() === 'route not found') {
           if (attemptedUrl.includes('/api/owner/panorama/stitch')) {
-            setError('Backend panorama proxy is reachable, but upstream panorama endpoint returned 404. Set PANORAMA_SERVICE_URL on backend to the Python service base URL and redeploy backend.');
+            setError('Backend returned 404 for the stitch route. The deployed backend is missing POST /api/owner/panorama/stitch or is running an older build. Redeploy the latest backend commit.');
           } else {
             setError(`Backend returned 404 for ${attemptedMethod} ${attemptedUrl}. Expected stitch endpoint ${stitchRouteUrl}. Verify backend deploy and API base URL.`);
           }
