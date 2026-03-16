@@ -14,6 +14,10 @@ import { errorHandler } from './middleware/errorMiddleware.js';
 import HealthMonitor from './utils/healthMonitor.js';
 import RequestQueueManager from './middleware/requestQueue.js';
 import GracefulShutdown from './utils/gracefulShutdown.js';
+import { stitchPanoramaPreview } from './controllers/ownerController.js';
+import { protect } from './middleware/authMiddleware.js';
+import { authorize } from './middleware/roleMiddleware.js';
+import upload from './middleware/uploadMiddleware.js';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -171,6 +175,19 @@ app.get('/api/hostels/search', cacheStrategies.dynamic, searchHostels);
 app.get('/api/config/mapbox-token', cacheStrategies.semiStatic, (req, res) => {
   res.json({ success: true, token: process.env.VITE_MAPBOX_TOKEN || '' });
 });
+
+// Panorama stitch route registered directly to avoid production router drift.
+const panoramaUploadFields = upload.fields([
+  { name: 'front', maxCount: 1 },
+  { name: 'back', maxCount: 1 },
+  { name: 'left', maxCount: 1 },
+  { name: 'right', maxCount: 1 },
+  { name: 'top', maxCount: 1 },
+  { name: 'bottom', maxCount: 1 },
+]);
+
+app.post('/api/owner/panorama/stitch', protect, authorize('owner'), panoramaUploadFields, stitchPanoramaPreview);
+app.post('/owner/panorama/stitch', protect, authorize('owner'), panoramaUploadFields, stitchPanoramaPreview);
 
 // Routes
 app.use('/api/auth', authRoutes);
