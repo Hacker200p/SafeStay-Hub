@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { ownerAPI } from '../../services/api';
 import PanoramaViewer from './PanoramaViewer';
 
 const CubemapUpload = ({ onUploadSuccess }) => {
@@ -65,7 +65,7 @@ const CubemapUpload = ({ onUploadSuccess }) => {
     setError(null);
 
     try {
-      const formData = new FormData();
+      const preparedFaces = {};
       
       // Helper function to flip an image horizontally
       const flipImageHorizontally = async (file) => {
@@ -100,10 +100,10 @@ const CubemapUpload = ({ onUploadSuccess }) => {
         if (face === 'back' || face === 'right') {
           // Flip back and right wall images
           const flippedBlob = await flipImageHorizontally(faces[face]);
-          formData.append(face, flippedBlob, faces[face].name);
+          preparedFaces[face] = flippedBlob;
         } else {
           // Keep front and left as-is
-          formData.append(face, faces[face]);
+          preparedFaces[face] = faces[face];
         }
       }
       
@@ -118,7 +118,7 @@ const CubemapUpload = ({ onUploadSuccess }) => {
       // Convert canvas to blob and append as top face (ceiling)
       await new Promise((resolve) => {
         canvas.toBlob((blob) => {
-          formData.append('top', blob, 'ceiling-white.jpg');
+          preparedFaces.top = blob;
           resolve();
         }, 'image/jpeg', 0.95);
       });
@@ -126,33 +126,35 @@ const CubemapUpload = ({ onUploadSuccess }) => {
       // Append same white image as bottom face (floor)
       await new Promise((resolve) => {
         canvas.toBlob((blob) => {
-          formData.append('bottom', blob, 'floor-white.jpg');
+          preparedFaces.bottom = blob;
           resolve();
         }, 'image/jpeg', 0.95);
       });
 
-      const response = await axios.post(
-        'http://localhost:5001/stitch',
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          onUploadProgress: (progressEvent) => {
-            const percent = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            setProgress(percent);
-          }
+      setProgress(15);
+
+      const response = await ownerAPI.stitchPanorama(
+        preparedFaces,
+        4096,
+        (progressEvent) => {
+          if (!progressEvent?.total) return;
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setProgress(Math.min(percent, 90));
         }
       );
 
-      console.log('Stitch response:', response.data);
-      setResult(response.data);
-      const panoramaUrl = `http://localhost:5001${response.data.url}`;
-      console.log('Setting preview URL:', panoramaUrl);
+      const stitchData = response.data?.data || response.data;
+      if (!stitchData?.success || !stitchData?.imageBase64) {
+        throw new Error('Panorama service returned invalid data');
+      }
+
+      setProgress(100);
+      setResult(stitchData);
+      const panoramaUrl = `data:image/jpeg;base64,${stitchData.imageBase64}`;
       setPreviewUrl(panoramaUrl);
       
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to stitch panorama');
+      setError(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to stitch panorama');
       console.error('Stitch error:', err);
     } finally {
       setUploading(false);

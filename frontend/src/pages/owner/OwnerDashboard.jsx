@@ -190,6 +190,20 @@ export default function OwnerDashboard() {
     pendingVerifications: hostels.filter((h) => h.verificationStatus === 'pending').length,
     activeTenants: tenants.filter(t => t.status === 'active').length,
   }
+
+  const panoramaBase64ToFile = (imageBase64, fileName = 'panorama.jpg') => {
+    const byteCharacters = atob(imageBase64)
+    const byteNumbers = new Array(byteCharacters.length)
+
+    for (let i = 0; i < byteCharacters.length; i += 1) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+
+    return new File([new Uint8Array(byteNumbers)], fileName, { type: 'image/jpeg' })
+  }
+
+  const panoramaBase64ToDataUrl = (imageBase64) => `data:image/jpeg;base64,${imageBase64}`
+
   const handlePickMedia = (e) => {
     const files = Array.from(e.target.files || [])
     const prepared = files.map((file) => ({
@@ -1717,21 +1731,18 @@ export default function OwnerDashboard() {
                       const response = await ownerAPI.createRoom(roomForm.hostelId, roomData)
                       
                       // Upload panorama if available
-                      if (roomForm.panoramaData && response.data?.data) {
+                      if (roomForm.panoramaData?.imageBase64 && response.data?.data) {
                         const createdRooms = Array.isArray(response.data.data) ? response.data.data : [response.data.data]
                         
                         // Upload panorama to the first created room
                         if (createdRooms.length > 0) {
                           try {
-                            // Fetch the panorama image from Python service
-                            const panoramaUrl = `http://localhost:5001${roomForm.panoramaData.url}`
-                            const panoramaBlob = await fetch(panoramaUrl).then(r => r.blob())
-                            
-                            // Upload to room
-                            const formData = new FormData()
-                            formData.append('panorama', panoramaBlob, 'panorama.jpg')
-                            
-                            await ownerAPI.uploadRoomMedia(createdRooms[0]._id, formData)
+                            const panoramaFile = panoramaBase64ToFile(
+                              roomForm.panoramaData.imageBase64,
+                              roomForm.panoramaData.filename || 'panorama.jpg'
+                            )
+
+                            await ownerAPI.uploadRoomMedia(createdRooms[0]._id, [panoramaFile], 'panorama')
                           } catch (panoramaErr) {
                             console.error('Failed to upload panorama:', panoramaErr)
                           }
@@ -1994,15 +2005,18 @@ export default function OwnerDashboard() {
                     <CubemapUpload 
                       onUploadSuccess={(data) => {
                         console.log('Panorama created from cubemap:', data);
+                        const panoramaUrl = data?.imageBase64 ? panoramaBase64ToDataUrl(data.imageBase64) : null
+
                         // Store the panorama data to be sent with room creation
-                        setRoomForm({
-                          ...roomForm,
+                        setRoomForm((prev) => ({
+                          ...prev,
                           panoramaData: data
-                        });
-                        setPanoramaPreview({ 
-                          file: null, 
-                          url: `http://localhost:5001${data.url}` 
-                        });
+                        }))
+
+                        setPanoramaPreview({
+                          file: null,
+                          url: panoramaUrl
+                        })
                       }}
                     />
                     
@@ -2920,16 +2934,17 @@ export default function OwnerDashboard() {
                   onUploadSuccess={async (data) => {
                     console.log('Edit room panorama created:', data);
                     try {
-                      // Fetch the panorama image from Python service as blob
-                      const panoramaUrl = `http://localhost:5001${data.url}`
-                      const response = await fetch(panoramaUrl)
-                      const blob = await response.blob()
-                      const file = new File([blob], data.filename || 'panorama.jpg', { type: 'image/jpeg' })
+                      if (!data?.imageBase64) {
+                        throw new Error('Missing panorama image data')
+                      }
+
+                      const file = panoramaBase64ToFile(data.imageBase64, data.filename || 'panorama.jpg')
+                      const panoramaUrl = panoramaBase64ToDataUrl(data.imageBase64)
                       
                       setUploadedEditPanorama({ 
                         file: file,
                         url: panoramaUrl,
-                        name: data.filename
+                        name: data.filename || 'panorama.jpg'
                       });
                       console.log('Panorama file prepared for upload:', file)
                     } catch (err) {
@@ -3533,10 +3548,10 @@ export default function OwnerDashboard() {
             <div className="flex gap-3">
               <button
                 onClick={() => {
-                  if (uploadedEditPanorama.file) {
+                  if (uploadedEditPanorama.file && uploadedEditPanorama.url?.startsWith('blob:')) {
                     URL.revokeObjectURL(uploadedEditPanorama.url);
-                    setUploadedEditPanorama(null);
                   }
+                  setUploadedEditPanorama(null);
                   setShowEditPanoramaPreview(false);
                 }}
                 className="px-6 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"

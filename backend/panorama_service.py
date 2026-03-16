@@ -439,6 +439,9 @@ def get_panorama(filename):
         return jsonify({'error': 'File not found'}), 404
 
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5001))
+    debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+
     print("Panorama Conversion Service Starting...")
     print("Endpoints:")
     print("   - POST /convert - Convert single panorama")
@@ -446,4 +449,5 @@ if __name__ == '__main__':
     print("   - POST /stitch - Stitch 6 photos into panorama")
     print("   - GET /panorama/<filename> - Get panorama")
     print("   - GET /health - Health check")
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    print(f"Listening on port: {port}")
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)

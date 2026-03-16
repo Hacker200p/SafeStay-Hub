@@ -1,6 +1,7 @@
 import express from 'express';
 const router = express.Router();
 import {
+  stitchPanoramaPreview,
   createHostel,
   getMyHostels,
   updateHostel,
@@ -28,6 +29,15 @@ import upload from '../middleware/uploadMiddleware.js';
 
 router.use(protect);
 router.use(authorize('owner'));
+
+router.post('/panorama/stitch', upload.fields([
+  { name: 'front', maxCount: 1 },
+  { name: 'back', maxCount: 1 },
+  { name: 'left', maxCount: 1 },
+  { name: 'right', maxCount: 1 },
+  { name: 'top', maxCount: 1 },
+  { name: 'bottom', maxCount: 1 }
+]), stitchPanoramaPreview);
 
 router.route('/hostels')
   .post(createHostel)

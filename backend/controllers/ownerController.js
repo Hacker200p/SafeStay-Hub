@@ -10,6 +10,87 @@ import Feedback from '../models/Feedback.js';
 
 // Panorama service URL from environment
 const PANORAMA_SERVICE_URL = process.env.PANORAMA_SERVICE_URL || 'http://localhost:5001';
+const PANORAMA_TIMEOUT_MS = parseInt(process.env.PANORAMA_TIMEOUT_MS || '120000', 10);
+
+const normalizePanoramaWidth = (value) => {
+  const parsedWidth = parseInt(value || '4096', 10);
+  if (Number.isNaN(parsedWidth)) {
+    return 4096;
+  }
+  return Math.min(Math.max(parsedWidth, 1024), 8192);
+};
+
+// @desc    Stitch cubemap faces into panorama preview
+// @route   POST /api/owner/panorama/stitch
+// @access  Private/Owner
+const stitchPanoramaPreview = async (req, res) => {
+  try {
+    const requiredFaces = ['front', 'back', 'left', 'right', 'top', 'bottom'];
+    const missingFaces = requiredFaces.filter((face) => !req.files?.[face]?.[0]);
+
+    if (missingFaces.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing cubemap faces: ${missingFaces.join(', ')}`,
+      });
+    }
+
+    const width = normalizePanoramaWidth(req.body?.width);
+    const formData = new FormData();
+
+    requiredFaces.forEach((face) => {
+      const file = req.files[face][0];
+      formData.append(face, file.buffer, file.originalname || `${face}.jpg`);
+    });
+    formData.append('width', String(width));
+
+    const panoramaResponse = await axios.post(
+      `${PANORAMA_SERVICE_URL}/stitch-base64`,
+      formData,
+      {
+        headers: formData.getHeaders(),
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        timeout: PANORAMA_TIMEOUT_MS,
+      }
+    );
+
+    if (!panoramaResponse.data?.success || !panoramaResponse.data?.imageBase64) {
+      return res.status(502).json({
+        success: false,
+        message: 'Panorama service returned an invalid response',
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        success: true,
+        width: panoramaResponse.data.width,
+        height: panoramaResponse.data.height,
+        imageBase64: panoramaResponse.data.imageBase64,
+        message: panoramaResponse.data.message || 'Panorama stitched successfully',
+      },
+    });
+  } catch (error) {
+    const isConnectionError = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(error.code);
+    if (isConnectionError) {
+      return res.status(503).json({
+        success: false,
+        message: 'Panorama service is unavailable. Please try again later.',
+      });
+    }
+
+    const statusCode = error.response?.status || 500;
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message ||
+      'Failed to stitch panorama';
+
+    return res.status(statusCode).json({ success: false, message });
+  }
+};
 
 // @desc    Create new hostel
 // @route   POST /api/owner/hostels
@@ -434,25 +515,9 @@ const uploadRoomMedia = async (req, res) => {
           }
         }
         
-        const formData = new FormData();
-        formData.append('file', files.panorama[0].buffer, files.panorama[0].originalname);
-        formData.append('width', '4096'); // High quality for Three.js
-        
-        const panoramaResponse = await axios.post(
-          `${PANORAMA_SERVICE_URL}/stitch-base64`,
-          formData,
-          {
-            headers: formData.getHeaders(),
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-            timeout: 60000, // 60 second timeout
-          }
-        );
-
-        if (panoramaResponse.data.success && panoramaResponse.data.imageBase64) {
-          // Upload base64 image to Cloudinary
-          const cloudinaryResult = await cloudinary.uploader.upload(
-            `data:image/jpeg;base64,${panoramaResponse.data.imageBase64}`,
+        const panoramaFile = files.panorama[0];
+        const cloudinaryResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
             {
               resource_type: 'image',
               folder: 'safestay/rooms/panoramas',
@@ -460,25 +525,26 @@ const uploadRoomMedia = async (req, res) => {
                 { quality: 'auto:good' },
                 { fetch_format: 'auto' }
               ]
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
             }
           );
+          stream.end(panoramaFile.buffer);
+        });
 
-          room.panorama = {
-            url: cloudinaryResult.secure_url,
-            publicId: cloudinaryResult.public_id,
-            originalFilename: files.panorama[0].originalname,
-            uploadedAt: new Date(),
-            dimensions: {
-              width: panoramaResponse.data.width,
-              height: panoramaResponse.data.height
-            }
-          };
-          
-          console.log('Panorama uploaded to Cloudinary:', cloudinaryResult.public_id);
-        }
+        room.panorama = {
+          url: cloudinaryResult.secure_url,
+          publicId: cloudinaryResult.public_id,
+          originalFilename: panoramaFile.originalname,
+          uploadedAt: new Date(),
+        };
+        
+        console.log('Panorama uploaded to Cloudinary:', cloudinaryResult.public_id);
       } catch (panoramaError) {
         console.error('Panorama upload error:', panoramaError.message);
-        // Continue without panorama if it fails
+        return res.status(500).json({ success: false, message: 'Failed to upload panorama' });
       }
     }
     
@@ -867,16 +933,17 @@ const deleteRoomPanorama = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    if (!room.panorama || !room.panorama.filename) {
+    if (!room.panorama) {
       return res.status(404).json({ success: false, message: 'No panorama found' });
     }
 
-    // Delete from Python service
-    try {
-      await axios.delete(`${PANORAMA_SERVICE_URL}/panorama/${room.panorama.filename}`);
-    } catch (deleteError) {
-      console.error('Failed to delete panorama from service:', deleteError.message);
-      // Continue even if deletion fails on the service
+    // Delete from Cloudinary if tracked
+    if (room.panorama.publicId) {
+      try {
+        await cloudinary.uploader.destroy(room.panorama.publicId);
+      } catch (deleteError) {
+        console.error('Failed to delete panorama from Cloudinary:', deleteError.message);
+      }
     }
 
     // Remove from database
@@ -891,6 +958,7 @@ const deleteRoomPanorama = async (req, res) => {
 };
 
 export {
+  stitchPanoramaPreview,
   createHostel,
   getMyHostels,
   updateHostel,

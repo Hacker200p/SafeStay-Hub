@@ -211,6 +211,21 @@ export const ownerAPI = {
   updateHostel: (id, data) => api.put(`/owner/hostels/${id}`, data),
   deleteHostel: (id) => api.delete(`/owner/hostels/${id}`),
   getHostelFeedbacks: () => api.get('/owner/feedbacks'),
+  stitchPanorama: (faces, width = 4096, onUploadProgress) => {
+    const form = new FormData()
+    ;['front', 'back', 'left', 'right', 'top', 'bottom'].forEach((face) => {
+      const file = faces?.[face]
+      if (file) {
+        form.append(face, file, file.name || `${face}.jpg`)
+      }
+    })
+    form.append('width', String(width))
+    return api.post('/owner/panorama/stitch', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 180000,
+      onUploadProgress,
+    })
+  },
   uploadHostelMedia: (hostelId, files) => {
     const form = new FormData()
     for (const f of files) form.append('files', f)
