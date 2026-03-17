@@ -56,7 +56,11 @@ const PanoramaViewer = ({
 
     // Load equirectangular texture with CORS
     const textureLoader = new THREE.TextureLoader();
-    console.log('Loading panorama from:', panoramaUrl);
+    const isDataUrl = typeof panoramaUrl === 'string' && panoramaUrl.startsWith('data:');
+    const debugPanoramaSource = isDataUrl
+      ? `${panoramaUrl.slice(0, 64)}... [data-url omitted]`
+      : panoramaUrl;
+    console.log('Loading panorama from:', debugPanoramaSource);
     
     textureLoader.setCrossOrigin('anonymous');
     textureLoader.load(
