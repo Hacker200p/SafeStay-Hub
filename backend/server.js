@@ -46,7 +46,8 @@ healthMonitor.start();
 const requestQueue = new RequestQueueManager({
   maxQueueSize: 1000,
   maxConcurrent: 100,
-  requestTimeout: 30000,
+  requestTimeout: parseInt(process.env.REQUEST_TIMEOUT_MS || '30000', 10),
+  multipartTimeout: parseInt(process.env.MULTIPART_REQUEST_TIMEOUT_MS || '180000', 10),
 });
 
 // Initialize graceful shutdown

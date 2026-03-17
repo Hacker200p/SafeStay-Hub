@@ -302,6 +302,15 @@ export const ownerAPI = {
     }
     return api.post(`/owner/rooms/${roomId}/upload`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 240000,
+    }).catch((error) => {
+      const isTimeout = error.code === 'ECONNABORTED' || error.response?.status === 504
+      if (isTimeout) {
+        const timeoutError = new Error('Media upload timed out. Please try again with a smaller file or retry in a moment.')
+        timeoutError.originalError = error
+        throw timeoutError
+      }
+      throw error
     })
   },
   createRoom: (hostelId, data) => api.post(`/owner/hostels/${hostelId}/rooms`, data),

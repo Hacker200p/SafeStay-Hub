@@ -5,6 +5,7 @@ class RequestQueueManager {
     this.maxQueueSize = options.maxQueueSize || 1000;
     this.maxConcurrent = options.maxConcurrent || 100;
     this.requestTimeout = options.requestTimeout || 30000; // 30 seconds
+    this.multipartTimeout = options.multipartTimeout || 180000; // 3 minutes for uploads
     
     this.activeRequests = 0;
     this.queuedRequests = 0;
@@ -36,6 +37,8 @@ class RequestQueueManager {
 
       this.activeRequests++;
 
+      const timeoutMs = this.resolveTimeout(req);
+
       // Set request timeout
       const timeoutId = setTimeout(() => {
         if (!res.headersSent) {
@@ -45,12 +48,17 @@ class RequestQueueManager {
             error: 'GATEWAY_TIMEOUT',
           });
         }
-      }, this.requestTimeout);
+      }, timeoutMs);
 
       // Cleanup on response finish
+      let cleanedUp = false;
       const cleanup = () => {
+        if (cleanedUp) {
+          return;
+        }
+        cleanedUp = true;
         clearTimeout(timeoutId);
-        this.activeRequests--;
+        this.activeRequests = Math.max(this.activeRequests - 1, 0);
         this.completedRequests++;
       };
 
@@ -59,6 +67,14 @@ class RequestQueueManager {
 
       next();
     };
+  }
+
+  resolveTimeout(req) {
+    const contentType = String(req.headers['content-type'] || '').toLowerCase();
+    if (contentType.includes('multipart/form-data')) {
+      return this.multipartTimeout;
+    }
+    return this.requestTimeout;
   }
 
   waitForSlot() {

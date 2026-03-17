@@ -992,6 +992,7 @@ export default function OwnerDashboard() {
                                   setUploadedPhotos([])
                                   setUploadedVideo(null)
                                   setUploaded360View(null)
+                                  setUploadedEditPanorama(null)
                                   setEditRoomMessage('')
                                 }}
                                 className="flex-1 bg-primary text-white py-2 rounded-lg hover:bg-blue-600 transition text-sm font-semibold"
@@ -2353,6 +2354,7 @@ export default function OwnerDashboard() {
                             setUploadedPhotos([])
                             setUploadedVideo(null)
                             setUploaded360View(null)
+                            setUploadedEditPanorama(null)
                             setEditRoomMessage('')
                           }}
                         >
@@ -2422,7 +2424,10 @@ export default function OwnerDashboard() {
           <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
             <h3 className="text-xl font-bold text-gray-800">Edit Room {editingRoom.roomNumber}</h3>
             <button
-              onClick={() => setEditingRoom(null)}
+              onClick={() => {
+                setEditingRoom(null)
+                setUploadedEditPanorama(null)
+              }}
               className="text-gray-500 hover:text-gray-700 text-2xl"
             >
               ×
@@ -2439,6 +2444,7 @@ export default function OwnerDashboard() {
               try {
                 // First, update the room details
                 let latestRoom = null
+                let refreshWarning = ''
                 const updatedRoomResponse = await ownerAPI.updateRoom(editingRoom._id, {
                   roomNumber: editRoomForm.roomNumber,
                   roomType: editRoomForm.roomType,
@@ -2485,7 +2491,7 @@ export default function OwnerDashboard() {
                 }
                 
                 // Refresh rooms list for the edited room's hostel.
-                const targetHostelId = editingRoom.hostelId || selectedHostelId
+                const targetHostelId = editingRoom.hostelId || editingRoom.hostel?._id || selectedHostelId
                 if (latestRoom?._id) {
                   setEditingRoom((prev) => (prev ? { ...prev, ...latestRoom, hostelId: prev.hostelId || targetHostelId } : prev))
                   setRooms((prev) => prev.map((room) => (room._id === latestRoom._id ? { ...room, ...latestRoom } : room)))
@@ -2497,20 +2503,36 @@ export default function OwnerDashboard() {
                     )
                   )
                 }
-                const res = await ownerAPI.getHostelRooms(targetHostelId)
-                setRooms(Array.isArray(res.data?.data) ? res.data.data : [])
+
+                if (targetHostelId) {
+                  try {
+                    const res = await ownerAPI.getHostelRooms(targetHostelId)
+                    setRooms(Array.isArray(res.data?.data) ? res.data.data : [])
+                  } catch (refreshRoomsErr) {
+                    console.error('Failed to refresh room list after update:', refreshRoomsErr)
+                    refreshWarning = ' Room saved, but room list refresh failed.'
+                  }
+                }
+
                 if (targetHostelId && targetHostelId !== selectedHostelId) {
                   setSelectedHostelId(targetHostelId)
                 }
                 
                 // Refresh hostels and all rooms list
-                const hostelResp = await ownerAPI.getMyHostels()
-                if (hostelResp?.data?.data) {
-                  setHostels(hostelResp.data.data)
-                  fetchAllRooms(hostelResp.data.data)
+                try {
+                  const hostelResp = await ownerAPI.getMyHostels()
+                  if (hostelResp?.data?.data) {
+                    setHostels(hostelResp.data.data)
+                    fetchAllRooms(hostelResp.data.data)
+                  }
+                } catch (refreshHostelErr) {
+                  console.error('Failed to refresh hostels after room update:', refreshHostelErr)
+                  if (!refreshWarning) {
+                    refreshWarning = ' Room saved, but dashboard refresh failed.'
+                  }
                 }
                 
-                setEditRoomMessage('✓ Room updated successfully!')
+                setEditRoomMessage(`✓ Room updated successfully!${refreshWarning}`)
                 
                 // Close modal after 1.5 seconds
                 setTimeout(() => {
@@ -2524,7 +2546,7 @@ export default function OwnerDashboard() {
                 }, 1500)
               } catch (err) {
                 console.error('Error updating room:', err)
-                setEditRoomMessage(err.response?.data?.message || 'Failed to update room')
+                setEditRoomMessage(err.response?.data?.message || err.message || 'Failed to update room')
               } finally {
                 setEditRoomLoading(false)
               }
@@ -3042,6 +3064,7 @@ export default function OwnerDashboard() {
                 type="button"
                 onClick={() => {
                   setEditingRoom(null)
+                  setUploadedEditPanorama(null)
                   setEditRoomMessage('')
                 }}
                 className="px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-semibold text-gray-700 disabled:opacity-50"
